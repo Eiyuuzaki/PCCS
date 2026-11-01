@@ -1,0 +1,7 @@
+dist/
+pkg/
+*.log
+*.db
+.idea/
+.vscode/
+state.json

@@ -1,0 +1,6 @@
+id=pccs
+name=PCCS (Phone Collector Cookie Sync)
+version=v0.1.0
+versionCode=1
+author=Eiyuuzaki
+description=从手机 App 本地存储读取凭据，指纹变化时推送到 NAS。当前支持京东 Cookie。
