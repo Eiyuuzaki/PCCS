@@ -1,67 +1,72 @@
 name: build
 
-on:
+"on":
   push:
-    branches: [main]
-    tags: ["v*"]
+    branches:
+      - main
+    tags:
+      - "v*"
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
+      - name: setup-go
+        uses: actions/setup-go@v5
         with:
           go-version: "1.22"
-          cache: true
+          cache: false
 
-      - name: deps
+      - name: tidy
         run: go mod tidy
 
       - name: vet
         run: go vet ./...
 
-      - name: build (linux/arm64)
+      - name: build-arm64
         env:
           CGO_ENABLED: "0"
-          GOOS: linux
-          GOARCH: arm64
+          GOOS: "linux"
+          GOARCH: "arm64"
         run: |
           mkdir -p dist
           go build -trimpath -ldflags "-s -w" -o dist/pccs ./cmd/pccs
-          ls -lh dist/pccs
-          file dist/pccs || true
+          ls -lh dist/
+          file dist/pccs
 
-      - name: package KSU module
+      - name: pack-module
         run: |
           set -e
-          VER="${GITHUB_REF_NAME:-dev}"
+          VER="${{ github.ref_name }}"
           OUT="dist/pccs-module-${VER}.zip"
-          mkdir -p pkg/bin pkg/webroot
+          rm -rf pkg
+          mkdir -p pkg/bin
           cp dist/pccs pkg/bin/pccs
-          cp module/module.prop pkg/
-          cp module/post-fs-data.sh pkg/
-          cp module/service.sh pkg/
-          cp module/uninstall.sh pkg/
+          cp module/module.prop pkg/module.prop
+          cp module/post-fs-data.sh pkg/post-fs-data.sh
+          cp module/service.sh pkg/service.sh
+          cp module/uninstall.sh pkg/uninstall.sh
           chmod 644 pkg/module.prop
-          chmod 755 pkg/post-fs-data.sh pkg/service.sh pkg/uninstall.sh pkg/bin/pccs
-          (cd pkg && zip -r "../${OUT}" . -x "*.DS_Store")
-          ls -lh "dist/"
+          chmod 755 pkg/post-fs-data.sh
+          chmod 755 pkg/service.sh
+          chmod 755 pkg/uninstall.sh
+          chmod 755 pkg/bin/pccs
+          cd pkg
+          zip -r "../${OUT}" .
+          cd ..
+          ls -lh dist/
 
-      - uses: actions/upload-artifact@v4
+      - name: upload
+        uses: actions/upload-artifact@v4
         with:
           name: pccs-arm64
-          path: |
-            dist/pccs
-            dist/pccs-module-*.zip
-
-      - name: release
-        if: startsWith(github.ref, "refs/tags/")
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/pccs
-            dist/pccs-module-*.zip
+          path: dist/
+          if-no-files-found: error
